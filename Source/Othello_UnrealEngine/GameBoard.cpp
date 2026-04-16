@@ -19,6 +19,17 @@ void AGameBoard::BeginPlay()
 {
 	Super::BeginPlay();
 	InitializeBoard();
+
+	FString TurnString = bIsBlackTurn ? TEXT("Black's turn") : TEXT("White's turn");
+	GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Green, TurnString);
+
+	TArray<int32> ValidMoves = GetValidMoves();
+	FString MovesString = TEXT("Valid moves: ");
+	for (int32 Square : ValidMoves)
+	{
+		MovesString += FString::Printf(TEXT("%d "), Square);
+	}
+	GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Yellow, MovesString);
 }
 
 void AGameBoard::InitializeBoard()
@@ -33,6 +44,14 @@ void AGameBoard::InitializeBoard()
 	Board[(Mid - 1) * BoardSize +  Mid     ] = ECellState::Black;
 	Board[ Mid      * BoardSize + (Mid - 1)] = ECellState::Black;
 	Board[ Mid      * BoardSize +  Mid     ] = ECellState::White;
+
+	bIsBlackTurn = true;
+
+	UE_LOG(LogTemp, Log, TEXT("InitializeBoard center cells:"));
+	UE_LOG(LogTemp, Log, TEXT("  [%d,%d] = %s"), Mid-1, Mid-1, *UEnum::GetValueAsString(GetCell(Mid-1, Mid-1)));
+	UE_LOG(LogTemp, Log, TEXT("  [%d,%d] = %s"), Mid-1, Mid,   *UEnum::GetValueAsString(GetCell(Mid-1, Mid)));
+	UE_LOG(LogTemp, Log, TEXT("  [%d,%d] = %s"), Mid,   Mid-1, *UEnum::GetValueAsString(GetCell(Mid,   Mid-1)));
+	UE_LOG(LogTemp, Log, TEXT("  [%d,%d] = %s"), Mid,   Mid,   *UEnum::GetValueAsString(GetCell(Mid,   Mid)));
 }
 
 ECellState AGameBoard::GetCell(int32 Row, int32 Col) const
@@ -50,9 +69,9 @@ bool AGameBoard::InBounds(int32 Row, int32 Col) const
 }
 
 bool AGameBoard::GetFlipsInDirection(int32 Row, int32 Col, int32 DRow, int32 DCol,
-                                     ECellState PlayerState, TArray<int32>& OutFlips) const
+                                     ECellState PieceState, TArray<int32>& OutFlips) const
 {
-	const ECellState OpponentState = (PlayerState == ECellState::Black)
+	const ECellState OpponentState = (PieceState == ECellState::Black)
 		? ECellState::White
 		: ECellState::Black;
 
@@ -60,7 +79,6 @@ bool AGameBoard::GetFlipsInDirection(int32 Row, int32 Col, int32 DRow, int32 DCo
 	int32 R = Row + DRow;
 	int32 C = Col + DCol;
 
-	// Walk in this direction, collecting opponent pieces.
 	while (InBounds(R, C) && Board[R * BoardSize + C] == OpponentState)
 	{
 		Candidates.Add(R * BoardSize + C);
@@ -68,29 +86,32 @@ bool AGameBoard::GetFlipsInDirection(int32 Row, int32 Col, int32 DRow, int32 DCo
 		C += DCol;
 	}
 
-	// Valid only if we ended on one of our own pieces (and collected at least one opponent).
-	if (Candidates.Num() > 0 && InBounds(R, C) && Board[R * BoardSize + C] == PlayerState)
+	if (Candidates.Num() > 0 && InBounds(R, C) && Board[R * BoardSize + C] == PieceState)
 	{
 		OutFlips.Append(Candidates);
 		return true;
 	}
 
+	int x = 19;
+
+	x++;
+
 	return false;
 }
 
-bool AGameBoard::IsValidMove(int32 Row, int32 Col, bool bIsBlackTurn) const
+bool AGameBoard::IsValidMove(int32 Row, int32 Col) const
 {
 	if (!InBounds(Row, Col) || Board[Row * BoardSize + Col] != ECellState::Empty)
 	{
 		return false;
 	}
 
-	const ECellState PlayerState = bIsBlackTurn ? ECellState::Black : ECellState::White;
+	const ECellState PieceState = bIsBlackTurn ? ECellState::Black : ECellState::White;
 
 	for (const auto& Dir : Directions)
 	{
 		TArray<int32> Flips;
-		if (GetFlipsInDirection(Row, Col, Dir[0], Dir[1], PlayerState, Flips))
+		if (GetFlipsInDirection(Row, Col, Dir[0], Dir[1], PieceState, Flips))
 		{
 			return true;
 		}
@@ -99,7 +120,7 @@ bool AGameBoard::IsValidMove(int32 Row, int32 Col, bool bIsBlackTurn) const
 	return false;
 }
 
-TArray<int32> AGameBoard::GetValidMoves(bool bIsBlackTurn) const
+TArray<int32> AGameBoard::GetValidMoves() const
 {
 	TArray<int32> ValidMoves;
 
@@ -107,7 +128,7 @@ TArray<int32> AGameBoard::GetValidMoves(bool bIsBlackTurn) const
 	{
 		for (int32 Col = 0; Col < BoardSize; ++Col)
 		{
-			if (IsValidMove(Row, Col, bIsBlackTurn))
+			if (IsValidMove(Row, Col))
 			{
 				ValidMoves.Add(Row * BoardSize + Col);
 			}
@@ -117,37 +138,61 @@ TArray<int32> AGameBoard::GetValidMoves(bool bIsBlackTurn) const
 	return ValidMoves;
 }
 
-bool AGameBoard::PlacePiece(int32 Row, int32 Col, bool bIsBlackTurn)
+bool AGameBoard::PlacePiece(int32 Row, int32 Col)
 {
-	if (!IsValidMove(Row, Col, bIsBlackTurn))
+	if (!IsValidMove(Row, Col))
 	{
 		return false;
 	}
 
-	const ECellState PlayerState = bIsBlackTurn ? ECellState::Black : ECellState::White;
+	const ECellState PieceState = bIsBlackTurn ? ECellState::Black : ECellState::White;
 
-	// Collect all pieces to flip across every direction.
 	TArray<int32> AllFlips;
 	for (const auto& Dir : Directions)
 	{
-		GetFlipsInDirection(Row, Col, Dir[0], Dir[1], PlayerState, AllFlips);
+		GetFlipsInDirection(Row, Col, Dir[0], Dir[1], PieceState, AllFlips);
 	}
 
-	// Place the new piece.
-	Board[Row * BoardSize + Col] = PlayerState;
+	Board[Row * BoardSize + Col] = PieceState;
 
-	// Flip captured pieces.
 	for (int32 Index : AllFlips)
 	{
-		Board[Index] = PlayerState;
+		Board[Index] = PieceState;
 	}
 
 	return true;
 }
 
+bool AGameBoard::HasAnyValidMove(bool bForBlack) const
+{
+	const ECellState PieceState = bForBlack ? ECellState::Black : ECellState::White;
+
+	for (int32 Row = 0; Row < BoardSize; ++Row)
+	{
+		for (int32 Col = 0; Col < BoardSize; ++Col)
+		{
+			if (Board[Row * BoardSize + Col] != ECellState::Empty)
+			{
+				continue;
+			}
+
+			for (const auto& Dir : Directions)
+			{
+				TArray<int32> Flips;
+				if (GetFlipsInDirection(Row, Col, Dir[0], Dir[1], PieceState, Flips))
+				{
+					return true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+
 bool AGameBoard::IsGameOver() const
 {
-	return GetValidMoves(true).Num() == 0 && GetValidMoves(false).Num() == 0;
+	return !HasAnyValidMove(true) && !HasAnyValidMove(false);
 }
 
 int32 AGameBoard::GetScore(bool bIsBlack) const
@@ -164,4 +209,45 @@ int32 AGameBoard::GetScore(bool bIsBlack) const
 	}
 
 	return Count;
+}
+
+bool AGameBoard::IsValidMoveForSquare(const FString& Input) const
+{
+	if (Input.Len() != 2)
+	{
+		return false;
+	}
+
+	int32 Square;
+
+	if (FChar::IsDigit(Input[0]) && FChar::IsDigit(Input[1]))
+	{
+		// Two-digit number e.g. "35"
+		Square = FCString::Atoi(*Input) - 1;
+	}
+	else if (!FChar::IsDigit(Input[0]) && FChar::IsDigit(Input[1]))
+	{
+		// Character prefix + single digit e.g. "A5"
+		Square = FChar::ConvertCharDigitToInt(Input[1]) - 1;
+	}
+	else
+	{
+		return false;
+	}
+
+	return IsValidMove(Square / BoardSize, Square % BoardSize);
+}
+
+bool AGameBoard::ApplyMove(int32 Square)
+{
+	const int32 Row = Square / BoardSize;
+	const int32 Col = Square % BoardSize;
+
+	if (!PlacePiece(Row, Col))
+	{
+		return false;
+	}
+
+	bIsBlackTurn = !bIsBlackTurn;
+	return true;
 }
