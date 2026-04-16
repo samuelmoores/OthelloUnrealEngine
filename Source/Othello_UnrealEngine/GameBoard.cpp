@@ -20,16 +20,14 @@ void AGameBoard::BeginPlay()
 	Super::BeginPlay();
 	InitializeBoard();
 
-	FString TurnString = bIsBlackTurn ? TEXT("Black's turn") : TEXT("White's turn");
-	GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Green, TurnString);
-
 	TArray<int32> ValidMoves = GetValidMoves();
-	FString MovesString = TEXT("Valid moves: ");
+	FString MovesString = TEXT("Valid moves:");
 	for (int32 Square : ValidMoves)
 	{
-		MovesString += FString::Printf(TEXT("%d "), Square);
+		MovesString += FString::Printf(TEXT(" %d"), Square);
 	}
-	GEngine->AddOnScreenDebugMessage(-1, 10.0f, FColor::Yellow, MovesString);
+	UE_LOG(LogTemp, Log, TEXT("%s"), bIsBlackTurn ? TEXT("Black's turn") : TEXT("White's turn"));
+	UE_LOG(LogTemp, Log, TEXT("%s"), *MovesString);
 }
 
 void AGameBoard::InitializeBoard()
@@ -47,11 +45,7 @@ void AGameBoard::InitializeBoard()
 
 	bIsBlackTurn = true;
 
-	UE_LOG(LogTemp, Log, TEXT("InitializeBoard center cells:"));
-	UE_LOG(LogTemp, Log, TEXT("  [%d,%d] = %s"), Mid-1, Mid-1, *UEnum::GetValueAsString(GetCell(Mid-1, Mid-1)));
-	UE_LOG(LogTemp, Log, TEXT("  [%d,%d] = %s"), Mid-1, Mid,   *UEnum::GetValueAsString(GetCell(Mid-1, Mid)));
-	UE_LOG(LogTemp, Log, TEXT("  [%d,%d] = %s"), Mid,   Mid-1, *UEnum::GetValueAsString(GetCell(Mid,   Mid-1)));
-	UE_LOG(LogTemp, Log, TEXT("  [%d,%d] = %s"), Mid,   Mid,   *UEnum::GetValueAsString(GetCell(Mid,   Mid)));
+	UE_LOG(LogTemp, Log, TEXT("InitializeBoard complete. Center cells set to starting position."));
 }
 
 ECellState AGameBoard::GetCell(int32 Row, int32 Col) const
