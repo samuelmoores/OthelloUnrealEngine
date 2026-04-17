@@ -141,15 +141,15 @@ bool AGameBoard::PlacePiece(int32 Row, int32 Col)
 
 	const ECellState PieceState = bIsBlackTurn ? ECellState::Black : ECellState::White;
 
-	TArray<int32> AllFlips;
+	LastFlips.Reset();
 	for (const auto& Dir : Directions)
 	{
-		GetFlipsInDirection(Row, Col, Dir[0], Dir[1], PieceState, AllFlips);
+		GetFlipsInDirection(Row, Col, Dir[0], Dir[1], PieceState, LastFlips);
 	}
 
 	Board[Row * BoardSize + Col] = PieceState;
 
-	for (int32 Index : AllFlips)
+	for (int32 Index : LastFlips)
 	{
 		Board[Index] = PieceState;
 	}
@@ -205,39 +205,76 @@ int32 AGameBoard::GetScore(bool bIsBlack) const
 	return Count;
 }
 
-bool AGameBoard::IsValidMoveForSquare(const FString& Input) const
+bool AGameBoard::ParseSquareInput(const FString& Input, int32& OutIndex) const
 {
 	if (Input.Len() != 2)
 	{
 		return false;
 	}
 
-	int32 Square;
-
 	if (FChar::IsDigit(Input[0]) && FChar::IsDigit(Input[1]))
 	{
-		// Two-digit number e.g. "35"
-		Square = FCString::Atoi(*Input) - 1;
+		OutIndex = FCString::Atoi(*Input) - 1;
 	}
 	else if (!FChar::IsDigit(Input[0]) && FChar::IsDigit(Input[1]))
 	{
-		// Character prefix + single digit e.g. "A5"
-		Square = FChar::ConvertCharDigitToInt(Input[1]) - 1;
+		OutIndex = FChar::ConvertCharDigitToInt(Input[1]) - 1;
 	}
 	else
 	{
 		return false;
 	}
 
+	return OutIndex >= 0 && OutIndex < BoardSize * BoardSize;
+}
+
+bool AGameBoard::IsValidMoveForSquare(const FString& Input) const
+{
+	int32 Square;
+	if (!ParseSquareInput(Input, Square))
+	{
+		return false;
+	}
 	return IsValidMove(Square / BoardSize, Square % BoardSize);
 }
 
-bool AGameBoard::ApplyMove(int32 Square)
+bool AGameBoard::HasPieceAtSquare(const FString& Input) const
 {
-	const int32 Row = Square / BoardSize;
-	const int32 Col = Square % BoardSize;
+	int32 Square;
+	if (!ParseSquareInput(Input, Square))
+	{
+		return false;
+	}
+	return Board[Square] != ECellState::Empty;
+}
 
-	if (!PlacePiece(Row, Col))
+bool AGameBoard::ShouldFlipSquare(const FString& Input) const
+{
+	int32 Square;
+	if (!ParseSquareInput(Input, Square))
+	{
+		return false;
+	}
+	return LastFlips.Contains(Square);
+}
+
+int AGameBoard::CurrentPlayer()
+{
+	if (!bIsBlackTurn)
+		return 0;
+	else
+		return 1;
+}
+
+bool AGameBoard::ApplyMove(const FString& Input)
+{
+	int32 Square;
+	if (!ParseSquareInput(Input, Square))
+	{
+		return false;
+	}
+
+	if (!PlacePiece(Square / BoardSize, Square % BoardSize))
 	{
 		return false;
 	}

@@ -35,10 +35,19 @@ public:
 	ECellState GetCell(int32 Row, int32 Col) const;
 
 	UFUNCTION(BlueprintCallable)
-	bool ApplyMove(int32 Square);
+	bool ApplyMove(const FString& Input);
 
 	UFUNCTION(BlueprintCallable)
 	bool IsValidMoveForSquare(const FString& Input) const;
+
+	UFUNCTION(BlueprintCallable)
+	bool HasPieceAtSquare(const FString& Input) const;
+
+	UFUNCTION(BlueprintCallable)
+	bool ShouldFlipSquare(const FString& Input) const;
+
+	UFUNCTION(BlueprintCallable)
+	int CurrentPlayer();
 
 protected:
 	virtual void BeginPlay() override;
@@ -46,8 +55,11 @@ protected:
 private:
 	static const int32 Directions[8][2];
 
+	TArray<int32> LastFlips;
+
 	bool InBounds(int32 Row, int32 Col) const;
 	bool HasAnyValidMove(bool bForBlack) const;
 	bool GetFlipsInDirection(int32 Row, int32 Col, int32 DRow, int32 DCol,
 	                         ECellState PieceState, TArray<int32>& OutFlips) const;
+	bool ParseSquareInput(const FString& Input, int32& OutIndex) const;
 };
