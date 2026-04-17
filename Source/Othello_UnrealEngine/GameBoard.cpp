@@ -62,58 +62,6 @@ bool AGameBoard::InBounds(int32 Row, int32 Col) const
 	return Row >= 0 && Row < BoardSize && Col >= 0 && Col < BoardSize;
 }
 
-bool AGameBoard::GetFlipsInDirection(int32 Row, int32 Col, int32 DRow, int32 DCol,
-                                     ECellState PieceState, TArray<int32>& OutFlips) const
-{
-	const ECellState OpponentState = (PieceState == ECellState::Black)
-		? ECellState::White
-		: ECellState::Black;
-
-	TArray<int32> Candidates;
-	int32 R = Row + DRow;
-	int32 C = Col + DCol;
-
-	while (InBounds(R, C) && Board[R * BoardSize + C] == OpponentState)
-	{
-		Candidates.Add(R * BoardSize + C);
-		R += DRow;
-		C += DCol;
-	}
-
-	if (Candidates.Num() > 0 && InBounds(R, C) && Board[R * BoardSize + C] == PieceState)
-	{
-		OutFlips.Append(Candidates);
-		return true;
-	}
-
-	int x = 19;
-
-	x++;
-
-	return false;
-}
-
-bool AGameBoard::IsValidMove(int32 Row, int32 Col) const
-{
-	if (!InBounds(Row, Col) || Board[Row * BoardSize + Col] != ECellState::Empty)
-	{
-		return false;
-	}
-
-	const ECellState PieceState = bIsBlackTurn ? ECellState::Black : ECellState::White;
-
-	for (const auto& Dir : Directions)
-	{
-		TArray<int32> Flips;
-		if (GetFlipsInDirection(Row, Col, Dir[0], Dir[1], PieceState, Flips))
-		{
-			return true;
-		}
-	}
-
-	return false;
-}
-
 TArray<int32> AGameBoard::GetValidMoves() const
 {
 	TArray<int32> ValidMoves;
@@ -205,6 +153,16 @@ int32 AGameBoard::GetScore(bool bIsBlack) const
 	return Count;
 }
 
+bool AGameBoard::IsValidMoveForSquare(const FString& Input) const
+{
+	int32 Square;
+	if (!ParseSquareInput(Input, Square))
+	{
+		return false;
+	}
+	return IsValidMove(Square / BoardSize, Square % BoardSize);
+}
+
 bool AGameBoard::ParseSquareInput(const FString& Input, int32& OutIndex) const
 {
 	if (Input.Len() != 2)
@@ -228,15 +186,54 @@ bool AGameBoard::ParseSquareInput(const FString& Input, int32& OutIndex) const
 	return OutIndex >= 0 && OutIndex < BoardSize * BoardSize;
 }
 
-bool AGameBoard::IsValidMoveForSquare(const FString& Input) const
+bool AGameBoard::IsValidMove(int32 Row, int32 Col) const
 {
-	int32 Square;
-	if (!ParseSquareInput(Input, Square))
+	if (!InBounds(Row, Col) || Board[Row * BoardSize + Col] != ECellState::Empty)
 	{
 		return false;
 	}
-	return IsValidMove(Square / BoardSize, Square % BoardSize);
+
+	const ECellState PieceState = bIsBlackTurn ? ECellState::Black : ECellState::White;
+
+	for (const auto& Dir : Directions)
+	{
+		TArray<int32> Flips;
+		if (GetFlipsInDirection(Row, Col, Dir[0], Dir[1], PieceState, Flips))
+		{
+			return true;
+		}
+	}
+
+	return false;
 }
+
+bool AGameBoard::GetFlipsInDirection(int32 Row, int32 Col, int32 DRow, int32 DCol,
+	ECellState PieceState, TArray<int32>& OutFlips) const
+{
+	const ECellState OpponentState = (PieceState == ECellState::Black)
+		? ECellState::White
+		: ECellState::Black;
+
+	TArray<int32> Candidates;
+	int32 R = Row + DRow;
+	int32 C = Col + DCol;
+
+	while (InBounds(R, C) && Board[R * BoardSize + C] == OpponentState)
+	{
+		Candidates.Add(R * BoardSize + C);
+		R += DRow;
+		C += DCol;
+	}
+
+	if (Candidates.Num() > 0 && InBounds(R, C) && Board[R * BoardSize + C] == PieceState)
+	{
+		OutFlips.Append(Candidates);
+		return true;
+	}
+
+	return false;
+}
+
 
 bool AGameBoard::HasPieceAtSquare(const FString& Input) const
 {
@@ -266,19 +263,19 @@ int AGameBoard::CurrentPlayer()
 		return 1;
 }
 
-bool AGameBoard::ApplyMove(const FString& Input)
+int32 AGameBoard::ApplyMove(const FString& Input)
 {
 	int32 Square;
 	if (!ParseSquareInput(Input, Square))
 	{
-		return false;
+		return -1;
 	}
 
 	if (!PlacePiece(Square / BoardSize, Square % BoardSize))
 	{
-		return false;
+		return -1;
 	}
 
 	bIsBlackTurn = !bIsBlackTurn;
-	return true;
+	return Square;
 }

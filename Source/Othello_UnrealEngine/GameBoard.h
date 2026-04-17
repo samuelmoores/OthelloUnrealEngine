@@ -35,7 +35,7 @@ public:
 	ECellState GetCell(int32 Row, int32 Col) const;
 
 	UFUNCTION(BlueprintCallable)
-	bool ApplyMove(const FString& Input);
+	int32 ApplyMove(const FString& Input);
 
 	UFUNCTION(BlueprintCallable)
 	bool IsValidMoveForSquare(const FString& Input) const;
