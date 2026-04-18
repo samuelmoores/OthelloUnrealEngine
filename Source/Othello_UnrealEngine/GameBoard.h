@@ -52,6 +52,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	int CurrentPlayer();
 
+	UFUNCTION(BlueprintCallable)
+	TArray<int32> GetScores() const;
+
 protected:
 	virtual void BeginPlay() override;
 

@@ -153,6 +153,11 @@ int32 AGameBoard::GetScore(bool bIsBlack) const
 	return Count;
 }
 
+TArray<int32> AGameBoard::GetScores() const
+{
+	return { GetScore(false), GetScore(true) };
+}
+
 bool AGameBoard::IsValidMoveForSquare(const FString& Input) const
 {
 	int32 Square;
