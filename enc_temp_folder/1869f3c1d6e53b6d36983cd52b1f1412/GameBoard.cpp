@@ -12,7 +12,7 @@ AGameBoard::AGameBoard()
 {
 	PrimaryActorTick.bCanEverTick = false;
 
-	InitializeBoard();
+	Board.Init(ECellState::Empty, BoardSize * BoardSize);
 }
 
 void AGameBoard::BeginPlay()
@@ -172,7 +172,9 @@ bool AGameBoard::ParseSquareInput(const FString& Input, int32& OutIndex) const
 
 	if (FChar::IsDigit(Input[0]) && FChar::IsDigit(Input[1]))
 	{
-		OutIndex = FCString::Atoi(*Input) - 1;
+		const int32 Row = FChar::ConvertCharDigitToInt(Input[0]) - 1;
+		const int32 Col = FChar::ConvertCharDigitToInt(Input[1]) - 1;
+		OutIndex = Row * BoardSize + Col;
 	}
 	else if (!FChar::IsDigit(Input[0]) && FChar::IsDigit(Input[1]))
 	{

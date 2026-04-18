@@ -6,7 +6,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameBoard.generated.h"
 
-UENUM()
+UENUM(BlueprintType)
 enum class ECellState : uint8
 {
 	Empty,
@@ -42,6 +42,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	bool HasPieceAtSquare(const FString& Input) const;
+
+	UFUNCTION(BlueprintCallable)
+	ECellState GetStateAtSquare(const FString& Input) const;
 
 	UFUNCTION(BlueprintCallable)
 	bool ShouldFlipSquare(const FString& Input) const;
