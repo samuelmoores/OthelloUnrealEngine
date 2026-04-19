@@ -53,6 +53,9 @@ public:
 	int CurrentPlayer();
 
 	UFUNCTION(BlueprintCallable)
+	FString GetRandomAIMove();
+
+	UFUNCTION(BlueprintCallable)
 	TArray<int32> GetScores() const;
 
 protected:

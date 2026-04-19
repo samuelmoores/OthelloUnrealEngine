@@ -270,6 +270,15 @@ bool AGameBoard::ShouldFlipSquare(const FString& Input) const
 	return LastFlips.Contains(Square);
 }
 
+FString AGameBoard::GetRandomAIMove()
+{
+	TArray<int32> ValidMoves = GetValidMoves();
+	if (ValidMoves.Num() == 0) return TEXT("");
+
+	int32 Square = ValidMoves[FMath::RandRange(0, ValidMoves.Num() - 1)];
+	return FString::Printf(TEXT("%02d"), Square + 1);
+}
+
 int AGameBoard::CurrentPlayer()
 {
 	if (!bIsBlackTurn)
