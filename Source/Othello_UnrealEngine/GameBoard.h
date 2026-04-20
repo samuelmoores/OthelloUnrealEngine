@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
 #include "GameBoard.generated.h"
 
@@ -12,6 +13,30 @@ enum class ECellState : uint8
 	Empty,
 	Black,
 	White,
+};
+
+UENUM(BlueprintType)
+enum class EAIMode : uint8
+{
+	Random,
+	Minimax,
+};
+
+UENUM(BlueprintType)
+enum class ETurnState : uint8
+{
+	HumanTurn,
+	AITurn,
+	GameOver,
+};
+
+UENUM(BlueprintType)
+enum class EWinResult : uint8
+{
+	InProgress,
+	BlackWins,
+	WhiteWins,
+	Draw,
 };
 
 UCLASS()
@@ -35,7 +60,7 @@ public:
 	ECellState GetCell(int32 Row, int32 Col) const;
 
 	UFUNCTION(BlueprintCallable)
-	int32 ApplyMove(const FString& Input);
+	void ApplyMove(const FString& Input);
 
 	UFUNCTION(BlueprintCallable)
 	bool IsValidMoveForSquare(const FString& Input) const;
@@ -50,13 +75,46 @@ public:
 	bool ShouldFlipSquare(const FString& Input) const;
 
 	UFUNCTION(BlueprintCallable)
-	int CurrentPlayer();
+	bool CurrentPlayer();
 
 	UFUNCTION(BlueprintCallable)
-	FString GetRandomAIMove();
+	bool GetRandomAIMove(FString& OutMove);
 
 	UFUNCTION(BlueprintCallable)
 	TArray<int32> GetScores() const;
+
+	UFUNCTION(BlueprintCallable)
+	EWinResult GetWinner() const;
+
+	UFUNCTION(BlueprintCallable)
+	bool PassTurnIfNoMoves();
+
+	UFUNCTION(BlueprintCallable)
+	bool CurrentPlayerHasValidMove() const;
+
+	UFUNCTION(BlueprintCallable)
+	ETurnState GetTurnState() const;
+
+	UFUNCTION(BlueprintCallable)
+	void ResetGame();
+
+	UFUNCTION(BlueprintCallable)
+	void SetAIMode(EAIMode Mode);
+
+	UFUNCTION(BlueprintCallable)
+	EAIMode GetAIMode() const;
+
+	UFUNCTION(BlueprintCallable)
+	void SetBlackIsAI(bool bIsAI);
+
+	UFUNCTION(BlueprintCallable)
+	void SetWhiteIsAI(bool bIsAI);
+
+	UFUNCTION(BlueprintCallable, Category = "Utility")
+	TArray<AActor*> SortActorsByDisplayName(TArray<AActor*> Actors);
+
+	UFUNCTION(BlueprintCallable)
+	int32 SquareStringToIndex(const FString& Input) const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -65,6 +123,9 @@ private:
 	static const int32 Directions[8][2];
 
 	TArray<int32> LastFlips;
+	EAIMode CurrentAIMode;
+	bool bBlackIsAI;
+	bool bWhiteIsAI;
 
 	bool InBounds(int32 Row, int32 Col) const;
 	bool HasAnyValidMove(bool bForBlack) const;
