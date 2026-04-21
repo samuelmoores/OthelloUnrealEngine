@@ -5,7 +5,10 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "GameFramework/Pawn.h"
+#include <atomic>
 #include "GameBoard.generated.h"
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnAIMoveReady, const FString&, Move);
 
 UENUM(BlueprintType)
 enum class ECellState : uint8
@@ -72,10 +75,19 @@ public:
 	ECellState GetStateAtSquare(const FString& Input) const;
 
 	UFUNCTION(BlueprintCallable)
-	bool ShouldFlipSquare(const FString& Input) const;
+	bool ShouldFlipSquare(int32 SquareIndex) const;
 
 	UFUNCTION(BlueprintCallable)
 	bool CurrentPlayer();
+
+	UPROPERTY(BlueprintAssignable, Category = "AI")
+	FOnAIMoveReady OnAIMoveReady;
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	void StartAIMove();
+
+	UFUNCTION(BlueprintCallable, Category = "AI")
+	bool IsAIThinking() const;
 
 	UFUNCTION(BlueprintCallable)
 	bool GetRandomAIMove(FString& OutMove);
@@ -118,6 +130,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
 	static const int32 Directions[8][2];
@@ -126,6 +139,9 @@ private:
 	EAIMode CurrentAIMode;
 	bool bBlackIsAI;
 	bool bWhiteIsAI;
+
+	std::atomic<bool>   bAIThinking  { false };
+	std::atomic<double> AIDeadline   { 0.0 };
 
 	bool InBounds(int32 Row, int32 Col) const;
 	bool HasAnyValidMove(bool bForBlack) const;

@@ -1,6 +1,7 @@
 // Fill out your copyright notice in the Description page of Project Settings.
 
 #include "GameBoard.h"
+#include "Async/Async.h"
 
 const int32 AGameBoard::Directions[8][2] = {
 	{-1, -1}, {-1, 0}, {-1, 1},
@@ -176,7 +177,8 @@ struct FMinimaxSearch
 
 	FString FindBestMove(bool bMaximizing)
 	{
-		Deadline = FPlatformTime::Seconds() + 2.0;
+		if (Deadline == 0.0)
+			Deadline = FPlatformTime::Seconds() + 2.0;
 		const double SearchStart = FPlatformTime::Seconds();
 
 		TArray<int32> ValidMoves = GetValidMoves();
@@ -278,8 +280,6 @@ void AGameBoard::InitializeBoard()
 
 	bIsBlackTurn = true;
 	CurrentAIMode = EAIMode::Random;
-	bBlackIsAI = false;
-	bWhiteIsAI = false;
 
 	UE_LOG(LogTemp, Log, TEXT("InitializeBoard complete. Center cells set to starting position."));
 }
@@ -497,14 +497,13 @@ ECellState AGameBoard::GetStateAtSquare(const FString& Input) const
 	return Board[Square];
 }
 
-bool AGameBoard::ShouldFlipSquare(const FString& Input) const
+bool AGameBoard::ShouldFlipSquare(int32 SquareIndex) const
 {
-	int32 Square;
-	if (!ParseSquareInput(Input, Square))
+	if (SquareIndex < 0 || SquareIndex >= BoardSize * BoardSize)
 	{
 		return false;
 	}
-	return LastFlips.Contains(Square);
+	return LastFlips.Contains(SquareIndex);
 }
 
 
@@ -517,6 +516,62 @@ void AGameBoard::SetAIMode(EAIMode Mode)
 EAIMode AGameBoard::GetAIMode() const
 {
 	return CurrentAIMode;
+}
+
+void AGameBoard::StartAIMove()
+{
+	if (bAIThinking.load()) return;
+	bAIThinking.store(true);
+
+	if (CurrentAIMode == EAIMode::Random)
+	{
+		TArray<int32> ValidMoves = GetValidMoves();
+		FString Move;
+		if (ValidMoves.Num() > 0)
+		{
+			const int32 Square = ValidMoves[FMath::RandRange(0, ValidMoves.Num() - 1)];
+			Move = FString::Printf(TEXT("%02d"), Square + 1);
+		}
+		bAIThinking.store(false);
+		OnAIMoveReady.Broadcast(Move);
+		return;
+	}
+
+	TArray<ECellState> BoardSnapshot = Board;
+	bool bTurnSnapshot = bIsBlackTurn;
+	bool bMaximizing   = bIsBlackTurn;
+
+	const double Deadline = FPlatformTime::Seconds() + 2.0;
+	AIDeadline.store(Deadline);
+
+	TWeakObjectPtr<AGameBoard> WeakThis(this);
+	Async(EAsyncExecution::ThreadPool, [WeakThis, BoardSnapshot, bTurnSnapshot, bMaximizing, Deadline]()
+	{
+		FMinimaxSearch Search(BoardSnapshot, bTurnSnapshot);
+		Search.Deadline = Deadline;
+		FString BestMove = Search.FindBestMove(bMaximizing);
+
+		AsyncTask(ENamedThreads::GameThread, [WeakThis, BestMove]()
+		{
+			if (AGameBoard* Board = WeakThis.Get())
+			{
+				Board->bAIThinking.store(false);
+				Board->OnAIMoveReady.Broadcast(BestMove);
+			}
+		});
+	});
+}
+
+void AGameBoard::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// Expire the deadline immediately so any running search exits at its next timeout check.
+	AIDeadline.store(FPlatformTime::Seconds() - 1.0);
+	Super::EndPlay(EndPlayReason);
+}
+
+bool AGameBoard::IsAIThinking() const
+{
+	return bAIThinking.load();
 }
 
 bool AGameBoard::GetRandomAIMove(FString& OutMove)
@@ -582,6 +637,11 @@ bool AGameBoard::PassTurnIfNoMoves()
 
 void AGameBoard::ResetGame()
 {
+	if (bAIThinking.load())
+	{
+		UE_LOG(LogTemp, Warning, TEXT("ResetGame called while AI is thinking — ignoring until move completes"));
+		return;
+	}
 	InitializeBoard();
 	UE_LOG(LogTemp, Log, TEXT("Game reset."));
 }
@@ -593,7 +653,7 @@ int32 AGameBoard::SquareStringToIndex(const FString& Input) const
 	{
 		return -1;
 	}
-	return Index + 1;
+	return Index;
 }
 
 TArray<AActor*> AGameBoard::SortActorsByDisplayName(TArray<AActor*> Actors)
@@ -608,7 +668,15 @@ TArray<AActor*> AGameBoard::SortActorsByDisplayName(TArray<AActor*> Actors)
 
 	Actors.Sort([](const AActor& A, const AActor& B)
 	{
-		return A.GetName() < B.GetName();
+		const FString NameA = A.GetName();
+		const FString NameB = B.GetName();
+		int32 LastUnderscoreA = INDEX_NONE;
+		int32 LastUnderscoreB = INDEX_NONE;
+		NameA.FindLastChar(TEXT('_'), LastUnderscoreA);
+		NameB.FindLastChar(TEXT('_'), LastUnderscoreB);
+		const int32 NumA = (LastUnderscoreA != INDEX_NONE) ? FCString::Atoi(*NameA.Mid(LastUnderscoreA + 1)) : 0;
+		const int32 NumB = (LastUnderscoreB != INDEX_NONE) ? FCString::Atoi(*NameB.Mid(LastUnderscoreB + 1)) : 0;
+		return NumA < NumB;
 	});
 	return Actors;
 }
