@@ -25,8 +25,10 @@ struct FMinimaxSearch
 	double Deadline;
 	bool   bTimedOut;
 
-	FMinimaxSearch(const TArray<ECellState>& InBoard, bool bInTurn)
-		: Board(InBoard), bIsBlackTurn(bInTurn), Deadline(0.0), bTimedOut(false) {}
+	double TimeBudget;
+
+	FMinimaxSearch(const TArray<ECellState>& InBoard, bool bInTurn, double InTimeBudget = 2.0)
+		: Board(InBoard), bIsBlackTurn(bInTurn), Deadline(0.0), bTimedOut(false), TimeBudget(InTimeBudget) {}
 
 	static bool InBounds(int32 R, int32 C)
 	{
@@ -178,7 +180,7 @@ struct FMinimaxSearch
 	FString FindBestMove(bool bMaximizing)
 	{
 		if (Deadline == 0.0)
-			Deadline = FPlatformTime::Seconds() + 2.0;
+			Deadline = FPlatformTime::Seconds() + TimeBudget;
 		const double SearchStart = FPlatformTime::Seconds();
 
 		TArray<int32> ValidMoves = GetValidMoves();
@@ -541,13 +543,14 @@ void AGameBoard::StartAIMove()
 	bool bTurnSnapshot = bIsBlackTurn;
 	bool bMaximizing   = bIsBlackTurn;
 
-	const double Deadline = FPlatformTime::Seconds() + 2.0;
+	const double Budget   = MinimaxTimeBudget;
+	const double Deadline = FPlatformTime::Seconds() + Budget;
 	AIDeadline.store(Deadline);
 
 	TWeakObjectPtr<AGameBoard> WeakThis(this);
-	Async(EAsyncExecution::ThreadPool, [WeakThis, BoardSnapshot, bTurnSnapshot, bMaximizing, Deadline]()
+	Async(EAsyncExecution::ThreadPool, [WeakThis, BoardSnapshot, bTurnSnapshot, bMaximizing, Deadline, Budget]()
 	{
-		FMinimaxSearch Search(BoardSnapshot, bTurnSnapshot);
+		FMinimaxSearch Search(BoardSnapshot, bTurnSnapshot, Budget);
 		Search.Deadline = Deadline;
 		FString BestMove = Search.FindBestMove(bMaximizing);
 

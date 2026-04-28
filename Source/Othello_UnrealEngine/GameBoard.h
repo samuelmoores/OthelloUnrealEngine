@@ -110,6 +110,9 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void ResetGame();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI", meta = (ClampMin = "0.1", UIMin = "0.1"))
+	float MinimaxTimeBudget = 2.0f;
+
 	UFUNCTION(BlueprintCallable)
 	void SetAIMode(EAIMode Mode);
 
